@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Admin - Sistema de Tickets</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-danger">
+        <div class="container">
+            <a class="navbar-brand" href="/admin">🛡️ Panel Administrativo</a>
+            <button class="btn btn-light ms-auto" onclick="cerrarSesion()">Cerrar Sesión</button>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- VERIFICACIÓN DE CONTRASEÑA -->
+        <div id="seccion-login" class="seccion active">
+            <div class="row justify-content-center">
+                <div class="col-lg-5">
+                    <div class="card shadow">
+                        <div class="card-header bg-danger text-white">
+                            <h5 class="mb-0">🔐 Acceso de Administrador</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Contraseña de Administrador</label>
+                                <input type="password" class="form-control" id="contraseña-admin">
+                                <small class="text-muted">Por defecto: admin123</small>
+                            </div>
+                            <button class="btn btn-danger w-100" onclick="verificarAdmin()">Acceder</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL PRINCIPAL -->
+        <div id="seccion-admin" class="seccion">
+            <!-- ESTADÍSTICAS -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-white bg-primary">
+                        <div class="card-body">
+                            <h6 class="card-title">Total de Tickets</h6>
+                            <h2 id="stat-total">0</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-warning">
+                        <div class="card-body">
+                            <h6 class="card-title">Abiertos</h6>
+                            <h2 id="stat-abiertos">0</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-info">
+                        <div class="card-body">
+                            <h6 class="card-title">En Proceso</h6>
+                            <h2 id="stat-proceso">0</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-white bg-success">
+                        <div class="card-body">
+                            <h6 class="card-title">Cerrados</h6>
+                            <h2 id="stat-cerrados">0</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PROMEDIO DE RESOLUCIÓN -->
+            <div class="row mb-4">
+                <div class="col-lg-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">📊 Tiempo Promedio de Resolución</h6>
+                        </div>
+                        <div class="card-body">
+                            <h4 id="stat-promedio">-- horas</h4>
+                            <small class="text-muted">Basado en tickets cerrados</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABLA DE TICKETS -->
+            <div class="card shadow">
+                <div class="card-header">
+                    <div class="row">
+                        <div class="col">
+                            <h6 class="mb-0">📋 Todos los Tickets</h6>
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-sm btn-primary" onclick="cargarTickets()">🔄 Actualizar</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID Ticket</th>
+                                    <th>Usuario</th>
+                                    <th>Email</th>
+                                    <th>Asunto</th>
+                                    <th>Estado</th>
+                                    <th>Prioridad</th>
+                                    <th>Fecha</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-tickets"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DETALLE DEL TICKET -->
+        <div id="seccion-detalle" class="seccion">
+            <button class="btn btn-secondary mb-3" onclick="mostrarAdmin()">← Volver</button>
+
+            <div class="card shadow mb-3">
+                <div class="card-header" id="header-detalle">
+                    <h5 class="mb-0" id="titulo-detalle">Ticket #</h5>
+                </div>
+                <div class="card-body" id="contenido-detalle"></div>
+            </div>
+
+            <!-- Mensajes -->
+            <div class="card shadow">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">💬 Conversación</h6>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;" id="lista-mensajes-admin"></div>
+
+                <div class="card-footer">
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="respuesta-mensaje" placeholder="Escribe tu respuesta...">
+                        <button class="btn btn-primary" onclick="agregarRespuesta()">Enviar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script-admin.js"></script>
+</body>
+</html>

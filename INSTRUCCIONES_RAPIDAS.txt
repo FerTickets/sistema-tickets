@@ -1,0 +1,155 @@
+═══════════════════════════════════════════════════════════════════════════════
+                    ¡SISTEMA DE TICKETS - OPERATIVO EN 10 MINUTOS!
+═══════════════════════════════════════════════════════════════════════════════
+
+📋 LO QUE NECESITAS:
+━━━━━━━━━━━━━━━━━━━━
+• Solo Node.js (gratuito)
+• Descargar de: https://nodejs.org/
+• Elegir versión LTS (la estable)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🚀 PASO 1: INSTALAR NODE.JS
+━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Ve a https://nodejs.org/
+2. Descarga versión LTS
+3. Instala (todos los pasos por defecto)
+4. Reinicia tu computadora
+5. Verifica: Abre Símbolo del Sistema y escribe: node --version
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🚀 PASO 2: ORGANIZAR ARCHIVOS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Tu carpeta debe verse así:
+
+sistema-tickets/
+  ├── server.js
+  ├── package.json
+  ├── .gitignore
+  ├── Procfile
+  └── public/
+      ├── index.html
+      ├── admin.html
+      ├── style.css
+      ├── script.js
+      └── script-admin.js
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🚀 PASO 3: INSTALAR DEPENDENCIAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. Abre Símbolo del Sistema (cmd o PowerShell)
+2. Navega a tu carpeta:
+   cd C:\Users\TuUsuario\Desktop\sistema-tickets
+
+3. Instala las dependencias:
+   npm install
+   
+   (Espera 1-2 minutos)
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🚀 PASO 4: EJECUTAR LA APLICACIÓN
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+En el mismo Símbolo del Sistema, escribe:
+
+   npm start
+
+Verás:
+   Servidor corriendo en puerto 3000
+   Accede a http://localhost:3000
+
+¡LISTO! 🎉
+
+═══════════════════════════════════════════════════════════════════════════════
+
+📱 CÓMO USAR:
+━━━━━━━━━━
+
+👤 PARA USUARIOS (crear tickets):
+   • Ve a http://localhost:3000
+   • Llena el formulario
+   • Recibe un ID de ticket
+   • Busca su ticket con su email
+
+🛡️ PARA TÍ (Administrador):
+   • Ve a http://localhost:3000/admin
+   • Contraseña: admin123
+   • Ves todos los tickets
+   • Cambias estado (abierto → en proceso → cerrado)
+   • Ves estadísticas (tiempo promedio de resolución)
+   • Respondes mensajes
+
+═══════════════════════════════════════════════════════════════════════════════
+
+☁️ PARA INTERNET (clientes accedan desde cualquier lado):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Lee el archivo: README.md
+
+Es muy sencillo:
+1. Crear cuenta GitHub
+2. Subir tu código a GitHub
+3. Subir a Render (5-10 clicks)
+4. Listo, tu aplicación está en internet
+
+═══════════════════════════════════════════════════════════════════════════════
+
+🔐 CAMBIAR CONTRASEÑA DEL ADMIN:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Abre server.js con editor de texto
+2. Busca: if (token !== 'admin123')
+3. Cambia 'admin123' por tu contraseña
+4. Guarda el archivo
+5. Reinicia: npm start
+
+═══════════════════════════════════════════════════════════════════════════════
+
+✨ CARACTERÍSTICAS:
+━━━━━━━━━━━━━━━
+
+USUARIOS:
+  ✓ Crear tickets con email
+  ✓ Ver estado del ticket
+  ✓ Enviar mensajes
+  ✓ Buscar tickets por email
+
+ADMINISTRADOR:
+  ✓ Ver todos los tickets
+  ✓ Cambiar estado
+  ✓ Responder mensajes
+  ✓ Ver estadísticas:
+    - Total de tickets
+    - Tickets por estado
+    - Tiempo promedio de resolución
+
+═══════════════════════════════════════════════════════════════════════════════
+
+❓ PREGUNTAS FRECUENTES:
+━━━━━━━━━━━━━━━━━━
+
+P: ¿Dónde se guardan los datos?
+R: En la base de datos local (tickets.db)
+
+P: ¿Cuántos tickets puedo tener?
+R: Ilimitados
+
+P: ¿Es gratuito?
+R: SÍ, 100% gratuito
+
+P: ¿Qué pasa si reinicio mi computadora?
+R: Solo tienes que ejecutar: npm start nuevamente
+
+P: ¿Puedo cambiar colores?
+R: Sí, edita public/style.css
+
+═══════════════════════════════════════════════════════════════════════════════
+
+¡YA TIENES TODO LISTO PARA EMPEZAR! 🎉
+
+Para más información, lee el archivo README.md
+
+═══════════════════════════════════════════════════════════════════════════════

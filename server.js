@@ -4,9 +4,18 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
+const nodemailer = require('nodemailer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+// Configuración de Nodemailer para Gmail
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'general.controlgifyt@gmail.com',
+    pass: 'hymx zbgg kdqk qdab'
+  }
+});
 
 // Middlewares
 app.use(cors());
@@ -77,6 +86,7 @@ app.post('/api/tickets', (req, res) => {
       if (err) {
         return res.status(500).json({ error: 'Error al crear ticket' });
       }
+
       // Agregar mensaje inicial
       const msgId = uuidv4();
       db.run(
@@ -85,6 +95,39 @@ app.post('/api/tickets', (req, res) => {
         [msgId, ticketId, nombre, 'usuario', descripcion],
         (err) => {
           if (err) console.error('Error al crear mensaje inicial:', err);
+
+          // ENVIAR CORREO AL USUARIO
+          const urlSeguimiento = `${req.protocol}://${req.get('host')}`;
+          const mailOptions = {
+            from: 'general.controlgifyt@gmail.com',
+            to: email,
+            subject: `Ticket creado: ${asunto}`,
+            html: `
+              <h2>¡Tu ticket ha sido creado exitosamente!</h2>
+              <p><strong>Asunto:</strong> ${asunto}</p>
+              <p><strong>ID del Ticket:</strong> <strong style="color: blue; font-size: 18px;">${ticketId.substring(0, 8)}</strong></p>
+              <hr>
+              <h3>¿Cómo hacer seguimiento?</h3>
+              <ol>
+                <li>Ve a: ${urlSeguimiento}</li>
+                <li>Haz clic en "Mis Tickets"</li>
+                <li>Ingresa tu email: ${email}</li>
+                <li>Verás el estado de tu ticket y todos los comentarios</li>
+              </ol>
+              <p><strong>Tiempo de respuesta estimado:</strong> En breve nos pondremos en contacto.</p>
+              <hr>
+              <p>¡Gracias por tu paciencia!</p>
+            `
+          };
+
+          transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+              console.error('Error enviando correo:', error);
+            } else {
+              console.log('Correo enviado:', info.response);
+            }
+          });
+
           res.json({
             id: ticketId,
             mensaje: 'Ticket creado exitosamente',

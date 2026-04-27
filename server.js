@@ -294,4 +294,5 @@ app.get('/admin', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
   console.log(`Accede a http://localhost:${PORT}`);
+// Versión con correos automáticos
 });

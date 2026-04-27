@@ -1,5 +1,5 @@
 const express = require('express');
-const { createClient } = require('@supabase/supabase-js');
+const { MongoClient } = require('mongodb');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const { v4: uuidv4 } = require('uuid');
@@ -14,13 +14,22 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Supabase Client
-const SUPABASE_URL = 'https://hklvofgfghubhopjzwwy.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_8P261h1SvzRBLX3ESA-tzA_w58EwQ5Y';
+// MongoDB Connection
+const MONGO_URL = 'mongodb+srv://generalcontrolgifyt_db_user:XrtWBRFNyGKzv822@cluster0.dqpyrbl.mongodb.net/?appName=Cluster0';
+let db;
+let ticketsCollection;
+let mensajesCollection;
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const client = new MongoClient(MONGO_URL);
 
-console.log('Conectando a Supabase...');
+client.connect().then(() => {
+  db = client.db('sistema_tickets');
+  ticketsCollection = db.collection('tickets');
+  mensajesCollection = db.collection('mensajes');
+  console.log('Conectado a MongoDB');
+}).catch(err => {
+  console.error('Error conectando a MongoDB:', err);
+});
 
 // ==================== RUTAS API ====================
 
@@ -34,102 +43,75 @@ app.post('/api/tickets', async (req, res) => {
   }
 
   try {
-    // Insertar ticket
-    const { error: ticketError } = await supabase
-      .from('tickets')
-      .insert({
-        id: ticketId,
-        email,
-        nombre,
-        asunto,
-        descripcion,
-        prioridad: prioridad || 'normal'
-      });
+    await ticketsCollection.insertOne({
+      id: ticketId,
+      email,
+      nombre,
+      asunto,
+      descripcion,
+      prioridad: prioridad || 'normal',
+      estado: 'abierto',
+      fecha_creacion: new Date(),
+      fecha_cierre: null
+    });
 
-    if (ticketError) {
-      console.error('Error insertando ticket:', ticketError);
-      return res.status(500).json({ error: 'Error al crear ticket' });
-    }
-
-    // Insertar mensaje inicial
     const msgId = uuidv4();
-    const { error: msgError } = await supabase
-      .from('mensajes')
-      .insert({
-        id: msgId,
-        ticket_id: ticketId,
-        autor: nombre,
-        tipo_autor: 'usuario',
-        mensaje: descripcion
-      });
-
-    if (msgError) {
-      console.error('Error insertando mensaje:', msgError);
-    }
+    await mensajesCollection.insertOne({
+      id: msgId,
+      ticket_id: ticketId,
+      autor: nombre,
+      tipo_autor: 'usuario',
+      mensaje: descripcion,
+      fecha: new Date()
+    });
 
     res.json({
       id: ticketId,
       mensaje: 'Ticket creado exitosamente',
       email: email
     });
-  } catch (err) {
-    console.error('Error al crear ticket:', err);
+  } catch (error) {
+    console.error('Error al crear ticket:', error);
     res.status(500).json({ error: 'Error al crear ticket' });
   }
 });
 
-// 2. OBTENER TICKET POR ID (usuario)
+// 2. OBTENER TICKET POR ID
 app.get('/api/tickets/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const { data: ticket, error: ticketError } = await supabase
-      .from('tickets')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const ticket = await ticketsCollection.findOne({ id });
 
-    if (ticketError || !ticket) {
+    if (!ticket) {
       return res.status(404).json({ error: 'Ticket no encontrado' });
     }
 
-    const { data: mensajes, error: msgError } = await supabase
-      .from('mensajes')
-      .select('*')
-      .eq('ticket_id', id)
-      .order('fecha', { ascending: true });
+    const mensajes = await mensajesCollection
+      .find({ ticket_id: id })
+      .sort({ fecha: 1 })
+      .toArray();
 
-    if (msgError) {
-      console.error('Error obteniendo mensajes:', msgError);
-      return res.status(500).json({ error: 'Error obteniendo mensajes' });
-    }
-
-    res.json({ ...ticket, mensajes: mensajes || [] });
-  } catch (err) {
-    console.error('Error obteniendo ticket:', err);
+    res.json({ ...ticket, mensajes });
+  } catch (error) {
+    console.error('Error:', error);
     res.status(500).json({ error: 'Error en la base de datos' });
   }
 });
 
-// 3. OBTENER TICKET POR EMAIL (usuario)
+// 3. OBTENER TICKETS POR EMAIL
 app.get('/api/tickets-usuario/:email', async (req, res) => {
   const { email } = req.params;
 
   try {
-    const { data: tickets, error } = await supabase
-      .from('tickets')
-      .select('id, email, nombre, asunto, estado, prioridad, fecha_creacion, fecha_cierre')
-      .eq('email', email)
-      .order('fecha_creacion', { ascending: false });
+    const tickets = await ticketsCollection
+      .find({ email })
+      .sort({ fecha_creacion: -1 })
+      .toArray();
 
-    if (error) {
-      console.error('Error obteniendo tickets:', error);
-      return res.status(500).json({ error: 'Error en la base de datos' });
-    }
-
-    res.json(tickets || []);
-  } catch (err) {
-    console.error('Error:', err);
+    res.json(tickets);
+  } catch (error) {
+    console.error('Error:', error);
     res.status(500).json({ error: 'Error en la base de datos' });
   }
 });
@@ -144,24 +126,18 @@ app.post('/api/mensajes', async (req, res) => {
   }
 
   try {
-    const { error } = await supabase
-      .from('mensajes')
-      .insert({
-        id: msgId,
-        ticket_id,
-        autor,
-        tipo_autor: tipo_autor || 'usuario',
-        mensaje
-      });
-
-    if (error) {
-      console.error('Error insertando mensaje:', error);
-      return res.status(500).json({ error: 'Error al agregar mensaje' });
-    }
+    await mensajesCollection.insertOne({
+      id: msgId,
+      ticket_id,
+      autor,
+      tipo_autor: tipo_autor || 'usuario',
+      mensaje,
+      fecha: new Date()
+    });
 
     res.json({ id: msgId, mensaje: 'Mensaje agregado' });
-  } catch (err) {
-    console.error('Error:', err);
+  } catch (error) {
+    console.error('Error:', error);
     res.status(500).json({ error: 'Error al agregar mensaje' });
   }
 });
@@ -177,19 +153,14 @@ app.get('/api/admin/tickets', async (req, res) => {
   }
 
   try {
-    const { data: tickets, error } = await supabase
-      .from('tickets')
-      .select('id, email, nombre, asunto, estado, prioridad, fecha_creacion, fecha_cierre')
-      .order('fecha_creacion', { ascending: false });
+    const tickets = await ticketsCollection
+      .find({})
+      .sort({ fecha_creacion: -1 })
+      .toArray();
 
-    if (error) {
-      console.error('Error obteniendo tickets:', error);
-      return res.status(500).json({ error: 'Error en la base de datos' });
-    }
-
-    res.json(tickets || []);
-  } catch (err) {
-    console.error('Error:', err);
+    res.json(tickets);
+  } catch (error) {
+    console.error('Error:', error);
     res.status(500).json({ error: 'Error en la base de datos' });
   }
 });
@@ -205,24 +176,16 @@ app.put('/api/admin/tickets/:id', async (req, res) => {
   }
 
   try {
-    const fechaCierre = estado === 'cerrado' ? new Date().toISOString() : null;
+    const fechaCierre = estado === 'cerrado' ? new Date() : null;
 
-    const { error } = await supabase
-      .from('tickets')
-      .update({
-        estado,
-        fecha_cierre: fechaCierre
-      })
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error actualizando ticket:', error);
-      return res.status(500).json({ error: 'Error actualizando ticket' });
-    }
+    await ticketsCollection.updateOne(
+      { id },
+      { $set: { estado, fecha_cierre: fechaCierre } }
+    );
 
     res.json({ mensaje: 'Ticket actualizado' });
-  } catch (err) {
-    console.error('Error:', err);
+  } catch (error) {
+    console.error('Error:', error);
     res.status(500).json({ error: 'Error actualizando ticket' });
   }
 });
@@ -236,24 +199,14 @@ app.get('/api/admin/estadisticas', async (req, res) => {
   }
 
   try {
-    // Obtener todos los tickets para calcular estadísticas
-    const { data: tickets, error } = await supabase
-      .from('tickets')
-      .select('estado, fecha_creacion, fecha_cierre');
+    const tickets = await ticketsCollection.find({}).toArray();
 
-    if (error) {
-      console.error('Error obteniendo tickets:', error);
-      return res.status(500).json({ error: 'Error en estadísticas' });
-    }
-
-    // Calcular estadísticas manualmente
     const total = tickets.length;
     const abiertos = tickets.filter(t => t.estado === 'abierto').length;
     const en_proceso = tickets.filter(t => t.estado === 'en_proceso').length;
     const cerrados = tickets.filter(t => t.estado === 'cerrado').length;
 
-    // Calcular promedio de horas
-    let horasPromedio = 0;
+    let horas_promedio = 0;
     const ticketsConCierre = tickets.filter(t => t.fecha_cierre);
     if (ticketsConCierre.length > 0) {
       const horas = ticketsConCierre.map(t => {
@@ -261,7 +214,7 @@ app.get('/api/admin/estadisticas', async (req, res) => {
         const fin = new Date(t.fecha_cierre);
         return (fin - inicio) / (1000 * 60 * 60);
       });
-      horasPromedio = Math.round((horas.reduce((a, b) => a + b) / horas.length) * 100) / 100;
+      horas_promedio = Math.round((horas.reduce((a, b) => a + b) / horas.length) * 100) / 100;
     }
 
     res.json({
@@ -269,10 +222,10 @@ app.get('/api/admin/estadisticas', async (req, res) => {
       abiertos,
       en_proceso,
       cerrados,
-      horas_promedio: horasPromedio
+      horas_promedio
     });
-  } catch (err) {
-    console.error('Error:', err);
+  } catch (error) {
+    console.error('Error:', error);
     res.status(500).json({ error: 'Error en estadísticas' });
   }
 });

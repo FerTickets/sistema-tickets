@@ -1,5 +1,5 @@
 const express = require('express');
-const { Pool } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const { v4: uuidv4 } = require('uuid');
@@ -14,57 +14,13 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Base de datos PostgreSQL
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://postgres:Gif920130uw0@db.hklvofgfghubhopjzwwy.supabase.co:5432/postgres';
+// Supabase Client
+const SUPABASE_URL = 'https://hklvofgfghubhopjzwwy.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_8P261h1SvzRBLX3ESA-tzA_w58EwQ5Y';
 
-const pool = new Pool({
-  connectionString: DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-pool.on('error', (err) => {
-  console.error('Error en pool de conexión:', err);
-});
-
-console.log('Conectando a PostgreSQL...');
-
-// Crear tablas
-const crearTablas = async () => {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS tickets (
-        id TEXT PRIMARY KEY,
-        email TEXT NOT NULL,
-        nombre TEXT NOT NULL,
-        asunto TEXT NOT NULL,
-        descripcion TEXT NOT NULL,
-        estado TEXT DEFAULT 'abierto',
-        prioridad TEXT DEFAULT 'normal',
-        fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        fecha_cierre TIMESTAMP,
-        admin_asignado TEXT
-      )
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS mensajes (
-        id TEXT PRIMARY KEY,
-        ticket_id TEXT NOT NULL,
-        autor TEXT NOT NULL,
-        tipo_autor TEXT DEFAULT 'usuario',
-        mensaje TEXT NOT NULL,
-        fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY(ticket_id) REFERENCES tickets(id)
-      )
-    `);
-
-    console.log('Base de datos conectada y tablas verificadas');
-  } catch (err) {
-    console.error('Error creando tablas:', err);
-  }
-};
-
-crearTablas();
+console.log('Conectando a Supabase...');
 
 // ==================== RUTAS API ====================
 
@@ -78,18 +34,38 @@ app.post('/api/tickets', async (req, res) => {
   }
 
   try {
-    await pool.query(
-      `INSERT INTO tickets (id, email, nombre, asunto, descripcion, prioridad)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [ticketId, email, nombre, asunto, descripcion, prioridad || 'normal']
-    );
+    // Insertar ticket
+    const { error: ticketError } = await supabase
+      .from('tickets')
+      .insert({
+        id: ticketId,
+        email,
+        nombre,
+        asunto,
+        descripcion,
+        prioridad: prioridad || 'normal'
+      });
 
+    if (ticketError) {
+      console.error('Error insertando ticket:', ticketError);
+      return res.status(500).json({ error: 'Error al crear ticket' });
+    }
+
+    // Insertar mensaje inicial
     const msgId = uuidv4();
-    await pool.query(
-      `INSERT INTO mensajes (id, ticket_id, autor, tipo_autor, mensaje)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [msgId, ticketId, nombre, 'usuario', descripcion]
-    );
+    const { error: msgError } = await supabase
+      .from('mensajes')
+      .insert({
+        id: msgId,
+        ticket_id: ticketId,
+        autor: nombre,
+        tipo_autor: 'usuario',
+        mensaje: descripcion
+      });
+
+    if (msgError) {
+      console.error('Error insertando mensaje:', msgError);
+    }
 
     res.json({
       id: ticketId,
@@ -107,23 +83,28 @@ app.get('/api/tickets/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const ticketResult = await pool.query(
-      `SELECT * FROM tickets WHERE id = $1`,
-      [id]
-    );
+    const { data: ticket, error: ticketError } = await supabase
+      .from('tickets')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-    if (ticketResult.rows.length === 0) {
+    if (ticketError || !ticket) {
       return res.status(404).json({ error: 'Ticket no encontrado' });
     }
 
-    const ticket = ticketResult.rows[0];
+    const { data: mensajes, error: msgError } = await supabase
+      .from('mensajes')
+      .select('*')
+      .eq('ticket_id', id)
+      .order('fecha', { ascending: true });
 
-    const mensajesResult = await pool.query(
-      `SELECT * FROM mensajes WHERE ticket_id = $1 ORDER BY fecha ASC`,
-      [id]
-    );
+    if (msgError) {
+      console.error('Error obteniendo mensajes:', msgError);
+      return res.status(500).json({ error: 'Error obteniendo mensajes' });
+    }
 
-    res.json({ ...ticket, mensajes: mensajesResult.rows });
+    res.json({ ...ticket, mensajes: mensajes || [] });
   } catch (err) {
     console.error('Error obteniendo ticket:', err);
     res.status(500).json({ error: 'Error en la base de datos' });
@@ -135,15 +116,20 @@ app.get('/api/tickets-usuario/:email', async (req, res) => {
   const { email } = req.params;
 
   try {
-    const result = await pool.query(
-      `SELECT id, email, nombre, asunto, estado, prioridad, fecha_creacion, fecha_cierre
-       FROM tickets WHERE email = $1 ORDER BY fecha_creacion DESC`,
-      [email]
-    );
+    const { data: tickets, error } = await supabase
+      .from('tickets')
+      .select('id, email, nombre, asunto, estado, prioridad, fecha_creacion, fecha_cierre')
+      .eq('email', email)
+      .order('fecha_creacion', { ascending: false });
 
-    res.json(result.rows || []);
+    if (error) {
+      console.error('Error obteniendo tickets:', error);
+      return res.status(500).json({ error: 'Error en la base de datos' });
+    }
+
+    res.json(tickets || []);
   } catch (err) {
-    console.error('Error obteniendo tickets:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Error en la base de datos' });
   }
 });
@@ -158,15 +144,24 @@ app.post('/api/mensajes', async (req, res) => {
   }
 
   try {
-    await pool.query(
-      `INSERT INTO mensajes (id, ticket_id, autor, tipo_autor, mensaje)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [msgId, ticket_id, autor, tipo_autor || 'usuario', mensaje]
-    );
+    const { error } = await supabase
+      .from('mensajes')
+      .insert({
+        id: msgId,
+        ticket_id,
+        autor,
+        tipo_autor: tipo_autor || 'usuario',
+        mensaje
+      });
+
+    if (error) {
+      console.error('Error insertando mensaje:', error);
+      return res.status(500).json({ error: 'Error al agregar mensaje' });
+    }
 
     res.json({ id: msgId, mensaje: 'Mensaje agregado' });
   } catch (err) {
-    console.error('Error al agregar mensaje:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Error al agregar mensaje' });
   }
 });
@@ -182,14 +177,19 @@ app.get('/api/admin/tickets', async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
-      `SELECT id, email, nombre, asunto, estado, prioridad, fecha_creacion, fecha_cierre
-       FROM tickets ORDER BY fecha_creacion DESC`
-    );
+    const { data: tickets, error } = await supabase
+      .from('tickets')
+      .select('id, email, nombre, asunto, estado, prioridad, fecha_creacion, fecha_cierre')
+      .order('fecha_creacion', { ascending: false });
 
-    res.json(result.rows || []);
+    if (error) {
+      console.error('Error obteniendo tickets:', error);
+      return res.status(500).json({ error: 'Error en la base de datos' });
+    }
+
+    res.json(tickets || []);
   } catch (err) {
-    console.error('Error obteniendo tickets:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Error en la base de datos' });
   }
 });
@@ -207,14 +207,22 @@ app.put('/api/admin/tickets/:id', async (req, res) => {
   try {
     const fechaCierre = estado === 'cerrado' ? new Date().toISOString() : null;
 
-    await pool.query(
-      `UPDATE tickets SET estado = $1, fecha_cierre = $2 WHERE id = $3`,
-      [estado, fechaCierre, id]
-    );
+    const { error } = await supabase
+      .from('tickets')
+      .update({
+        estado,
+        fecha_cierre: fechaCierre
+      })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error actualizando ticket:', error);
+      return res.status(500).json({ error: 'Error actualizando ticket' });
+    }
 
     res.json({ mensaje: 'Ticket actualizado' });
   } catch (err) {
-    console.error('Error actualizando ticket:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Error actualizando ticket' });
   }
 });
@@ -228,21 +236,43 @@ app.get('/api/admin/estadisticas', async (req, res) => {
   }
 
   try {
-    const result = await pool.query(`
-      SELECT
-        COUNT(*) as total,
-        SUM(CASE WHEN estado = 'abierto' THEN 1 ELSE 0 END) as abiertos,
-        SUM(CASE WHEN estado = 'en_proceso' THEN 1 ELSE 0 END) as en_proceso,
-        SUM(CASE WHEN estado = 'cerrado' THEN 1 ELSE 0 END) as cerrados,
-        ROUND(AVG(CASE WHEN fecha_cierre IS NOT NULL
-          THEN EXTRACT(EPOCH FROM (fecha_cierre - fecha_creacion))/3600
-          ELSE NULL END)::numeric, 2) as horas_promedio
-       FROM tickets
-    `);
+    // Obtener todos los tickets para calcular estadísticas
+    const { data: tickets, error } = await supabase
+      .from('tickets')
+      .select('estado, fecha_creacion, fecha_cierre');
 
-    res.json(result.rows[0] || {});
+    if (error) {
+      console.error('Error obteniendo tickets:', error);
+      return res.status(500).json({ error: 'Error en estadísticas' });
+    }
+
+    // Calcular estadísticas manualmente
+    const total = tickets.length;
+    const abiertos = tickets.filter(t => t.estado === 'abierto').length;
+    const en_proceso = tickets.filter(t => t.estado === 'en_proceso').length;
+    const cerrados = tickets.filter(t => t.estado === 'cerrado').length;
+
+    // Calcular promedio de horas
+    let horasPromedio = 0;
+    const ticketsConCierre = tickets.filter(t => t.fecha_cierre);
+    if (ticketsConCierre.length > 0) {
+      const horas = ticketsConCierre.map(t => {
+        const inicio = new Date(t.fecha_creacion);
+        const fin = new Date(t.fecha_cierre);
+        return (fin - inicio) / (1000 * 60 * 60);
+      });
+      horasPromedio = Math.round((horas.reduce((a, b) => a + b) / horas.length) * 100) / 100;
+    }
+
+    res.json({
+      total,
+      abiertos,
+      en_proceso,
+      cerrados,
+      horas_promedio: horasPromedio
+    });
   } catch (err) {
-    console.error('Error en estadísticas:', err);
+    console.error('Error:', err);
     res.status(500).json({ error: 'Error en estadísticas' });
   }
 });

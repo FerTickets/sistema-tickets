@@ -1,29 +1,11 @@
-// API BASE URL
 const API_URL = window.location.origin;
-let ticketActual = null;
 
-// ==================== FUNCIONES DE NAVEGACIÓN ====================
-
-function mostrarSeccion(seccion) {
-  // Ocultar todas las secciones
-  document.querySelectorAll('.seccion').forEach(el => {
-    el.classList.remove('active');
-  });
-
-  // Mostrar la sección seleccionada
-  const elemento = document.getElementById(`seccion-${seccion}`);
-  if (elemento) {
-    elemento.classList.add('active');
-  }
-}
-
-// ==================== CREAR TICKET ====================
-
-document.getElementById('formulario-ticket').addEventListener('submit', async (e) => {
+// Crear Ticket
+document.getElementById('form-ticket').addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  const nombre = document.getElementById('nombre').value;
   const email = document.getElementById('email').value;
+  const nombre = document.getElementById('nombre').value;
   const asunto = document.getElementById('asunto').value;
   const descripcion = document.getElementById('descripcion').value;
   const prioridad = document.getElementById('prioridad').value;
@@ -31,253 +13,123 @@ document.getElementById('formulario-ticket').addEventListener('submit', async (e
   try {
     const response = await fetch(`${API_URL}/api/tickets`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        nombre,
-        email,
-        asunto,
-        descripcion,
-        prioridad
-      })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, nombre, asunto, descripcion, prioridad })
     });
 
     const data = await response.json();
 
-    if (response.ok) {
-      // Mostrar mensaje de éxito
-      const mensajeDiv = document.getElementById('mensaje-exito');
-       mensajeDiv.innerHTML = `
-  <strong>¡Ticket creado exitosamente!</strong><br>
-  ID del Ticket: <strong>${data.id}</strong><br>
-  Para darle seguimiento a tu ticket, entra al apartado de <strong>Mis Tickets</strong> con tu cuenta de correo: <strong>${email}</strong>
-`;
-
-      `;
-      mensajeDiv.style.display = 'block';
-
-      // Limpiar formulario
-      document.getElementById('formulario-ticket').reset();
-
-      // Scroll al mensaje de éxito
-      setTimeout(() => {
-        mensajeDiv.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+    if (data.id) {
+      alert(`Ticket creado exitosamente\nID: ${data.id}\nGuarda este ID para seguimiento`);
+      document.getElementById('form-ticket').reset();
     } else {
-      alert('Error al crear el ticket: ' + (data.error || 'Error desconocido'));
+      alert('Error al crear ticket');
     }
   } catch (error) {
     console.error('Error:', error);
-    alert('Error de conexión. Intenta nuevamente.');
+    alert('Error al crear ticket');
   }
 });
 
-// ==================== BUSCAR TICKETS ====================
+// Buscar Tickets por Email
+document.getElementById('form-buscar').addEventListener('submit', async (e) => {
+  e.preventDefault();
 
-async function buscarTickets() {
   const email = document.getElementById('email-buscar').value;
-
-  if (!email) {
-    alert('Por favor ingresa tu correo electrónico');
-    return;
-  }
 
   try {
     const response = await fetch(`${API_URL}/api/tickets-usuario/${encodeURIComponent(email)}`);
     const tickets = await response.json();
 
     const listaDiv = document.getElementById('lista-tickets');
+    listaDiv.innerHTML = '';
 
     if (tickets.length === 0) {
-      listaDiv.innerHTML = '<div class="alert alert-warning">No se encontraron tickets para este email.</div>';
+      listaDiv.innerHTML = '<p>No hay tickets para este email</p>';
       return;
     }
 
-    let html = '<div class="list-group">';
-
     tickets.forEach(ticket => {
-      const estado = ticket.estado === 'cerrado' ? '✅' : ticket.estado === 'en_proceso' ? '⏳' : '📋';
-      const fechaFormato = new Date(ticket.fecha_creacion).toLocaleDateString('es-ES');
-
-      html += `
-        <button type="button" class="list-group-item list-group-item-action" onclick="verTicket('${ticket.id}')">
-          <div class="d-flex w-100 justify-content-between">
-            <h6 class="mb-1">${estado} ${ticket.asunto}</h6>
-            <span class="badge estado-${ticket.estado}">${ticket.estado.replace('_', ' ').toUpperCase()}</span>
-          </div>
-          <p class="mb-1"><strong>ID:</strong> ${ticket.id.substring(0, 8)}...</p>
-          <small class="text-muted">Creado: ${fechaFormato}</small>
-        </button>
+      const div = document.createElement('div');
+      div.className = 'ticket-item';
+      div.innerHTML = `
+        <p><strong>ID:</strong> ${ticket.id}</p>
+        <p><strong>Asunto:</strong> ${ticket.asunto}</p>
+        <p><strong>Estado:</strong> ${ticket.estado}</p>
+        <p><strong>Fecha:</strong> ${new Date(ticket.fecha_creacion).toLocaleString()}</p>
+        <button onclick="verDetalles('${ticket.id}')">Ver Detalles</button>
       `;
+      listaDiv.appendChild(div);
     });
-
-    html += '</div>';
-    listaDiv.innerHTML = html;
   } catch (error) {
     console.error('Error:', error);
-    alert('Error al buscar tickets.');
+    alert('Error al buscar tickets');
   }
-}
+});
 
-// ==================== VER TICKET DETALLADO ====================
-
-async function verTicket(ticketId) {
+// Ver Detalles del Ticket
+async function verDetalles(ticketId) {
   try {
     const response = await fetch(`${API_URL}/api/tickets/${ticketId}`);
     const ticket = await response.json();
 
-    if (!ticket.id) {
-      alert('Ticket no encontrado');
-      return;
-    }
-
-    ticketActual = ticket;
-
-    // Mostrar información del ticket
-    const estadoColor = ticket.estado === 'cerrado' ? 'success' : ticket.estado === 'en_proceso' ? 'warning' : 'info';
-    const prioridadColor = ticket.prioridad === 'alta' ? 'danger' : ticket.prioridad === 'baja' ? 'success' : 'warning';
-
-    document.getElementById('titulo-ticket').textContent = `Ticket #${ticket.id.substring(0, 8)} - ${ticket.asunto}`;
-
-    const contenido = `
-      <div class="info-ticket">
-        <div class="info-ticket-item">
-          <span class="info-ticket-label">Estado:</span>
-          <span class="badge estado-${ticket.estado}">${ticket.estado.replace('_', ' ').toUpperCase()}</span>
-        </div>
-        <div class="info-ticket-item">
-          <span class="info-ticket-label">Prioridad:</span>
-          <span class="badge prioridad-${ticket.prioridad}">${ticket.prioridad.toUpperCase()}</span>
-        </div>
-        <div class="info-ticket-item">
-          <span class="info-ticket-label">Nombre:</span>
-          <span class="info-ticket-valor">${ticket.nombre}</span>
-        </div>
-        <div class="info-ticket-item">
-          <span class="info-ticket-label">Email:</span>
-          <span class="info-ticket-valor">${ticket.email}</span>
-        </div>
-        <div class="info-ticket-item">
-          <span class="info-ticket-label">Creado:</span>
-          <span class="info-ticket-valor">${new Date(ticket.fecha_creacion).toLocaleString('es-ES')}</span>
-        </div>
-        ${ticket.fecha_cierre ? `
-          <div class="info-ticket-item">
-            <span class="info-ticket-label">Cerrado:</span>
-            <span class="info-ticket-valor">${new Date(ticket.fecha_cierre).toLocaleString('es-ES')}</span>
-          </div>
-        ` : ''}
-      </div>
+    const detallesDiv = document.getElementById('detalles-ticket');
+    detallesDiv.innerHTML = `
+      <h3>Detalles del Ticket ${ticketId}</h3>
+      <p><strong>Email:</strong> ${ticket.email}</p>
+      <p><strong>Nombre:</strong> ${ticket.nombre}</p>
+      <p><strong>Asunto:</strong> ${ticket.asunto}</p>
+      <p><strong>Descripción:</strong> ${ticket.descripcion}</p>
+      <p><strong>Estado:</strong> ${ticket.estado}</p>
+      <p><strong>Prioridad:</strong> ${ticket.prioridad}</p>
+      
+      <h4>Mensajes</h4>
+      <div id="mensajes-list"></div>
+      
+      <h4>Agregar Comentario</h4>
+      <input type="text" id="nuevo-mensaje" placeholder="Tu comentario...">
+      <button onclick="agregarMensaje('${ticketId}')">Enviar</button>
     `;
 
-    document.getElementById('contenido-ticket').innerHTML = contenido;
-
-    // Mostrar mensajes
-    mostrarMensajes(ticket.mensajes || []);
-
-    // Habilitar/deshabilitar entrada de mensajes según estado
-    const inputMensaje = document.getElementById('nuevo-mensaje');
-    if (ticket.estado === 'cerrado') {
-      inputMensaje.disabled = true;
-      inputMensaje.placeholder = 'Ticket cerrado - No se pueden agregar mensajes';
-    } else {
-      inputMensaje.disabled = false;
-      inputMensaje.placeholder = 'Escribe tu mensaje...';
+    const mensajesDiv = document.getElementById('mensajes-list');
+    if (ticket.mensajes && ticket.mensajes.length > 0) {
+      ticket.mensajes.forEach(msg => {
+        const p = document.createElement('p');
+        p.innerHTML = `<strong>${msg.autor}:</strong> ${msg.mensaje}`;
+        mensajesDiv.appendChild(p);
+      });
     }
-
-    mostrarSeccion('ticket');
   } catch (error) {
     console.error('Error:', error);
-    alert('Error al obtener el ticket.');
+    alert('Error al obtener detalles');
   }
 }
 
-function mostrarMensajes(mensajes) {
-  const listaDiv = document.getElementById('lista-mensajes');
-
-  if (mensajes.length === 0) {
-    listaDiv.innerHTML = '<p class="text-muted">No hay mensajes aún.</p>';
-    return;
-  }
-
-  let html = '';
-
-  mensajes.forEach(msg => {
-    const tipoClase = msg.tipo_autor === 'admin' ? 'admin' : 'usuario';
-    const fechaFormato = new Date(msg.fecha).toLocaleString('es-ES');
-
-    html += `
-      <div class="mensaje ${tipoClase}">
-        <div style="flex-grow: 1;">
-          <div class="mensaje-autor">
-            ${msg.tipo_autor === 'admin' ? '🛡️ ' : '👤 '}${msg.autor}
-            <span class="ms-2">
-              <span class="mensaje-fecha">${fechaFormato}</span>
-            </span>
-          </div>
-          <div class="mensaje-contenido">${msg.mensaje}</div>
-        </div>
-      </div>
-    `;
-  });
-
-  listaDiv.innerHTML = html;
-
-  // Auto scroll al último mensaje
-  setTimeout(() => {
-    listaDiv.scrollTop = listaDiv.scrollHeight;
-  }, 100);
-}
-
-// ==================== AGREGAR MENSAJE ====================
-
-async function agregarMensaje() {
-  if (!ticketActual) {
-    alert('No hay ticket seleccionado');
-    return;
-  }
-
-  const mensaje = document.getElementById('nuevo-mensaje').value.trim();
+// Agregar Mensaje
+async function agregarMensaje(ticketId) {
+  const mensaje = document.getElementById('nuevo-mensaje').value;
 
   if (!mensaje) {
-    alert('Por favor escribe un mensaje');
+    alert('Escribe un mensaje');
     return;
   }
 
   try {
-    const response = await fetch(`${API_URL}/api/mensajes`, {
+    await fetch(`${API_URL}/api/mensajes`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ticket_id: ticketActual.id,
-        autor: ticketActual.nombre,
+        ticket_id: ticketId,
+        autor: 'Usuario',
         tipo_autor: 'usuario',
         mensaje: mensaje
       })
     });
 
-    if (response.ok) {
-      document.getElementById('nuevo-mensaje').value = '';
-      // Recargar el ticket para ver el nuevo mensaje
-      verTicket(ticketActual.id);
-    } else {
-      alert('Error al enviar el mensaje');
-    }
+    document.getElementById('nuevo-mensaje').value = '';
+    verDetalles(ticketId);
   } catch (error) {
     console.error('Error:', error);
-    alert('Error de conexión');
+    alert('Error al enviar mensaje');
   }
 }
-
-// Permitir Enter para enviar mensaje
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('nuevo-mensaje').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      agregarMensaje();
-    }
-  });
-});

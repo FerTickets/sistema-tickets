@@ -48,11 +48,12 @@ document.getElementById('formulario-ticket').addEventListener('submit', async (e
     if (response.ok) {
       // Mostrar mensaje de éxito
       const mensajeDiv = document.getElementById('mensaje-exito');
-      mensajeDiv.innerHTML = `
+       mensajeDiv.innerHTML = `
   <strong>¡Ticket creado exitosamente!</strong><br>
   ID del Ticket: <strong>${data.id}</strong><br>
   Para darle seguimiento a tu ticket, entra al apartado de <strong>Mis Tickets</strong> con tu cuenta de correo: <strong>${email}</strong>
 `;
+
       `;
       mensajeDiv.style.display = 'block';
 
